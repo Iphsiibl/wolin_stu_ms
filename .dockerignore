@@ -1,0 +1,59 @@
+# =====================================================================
+# Docker 构建时忽略哪些文件
+# ---------------------------------------------------------------------
+# 【最重要的一条：.env】
+#   .env 里有数据库密码和 MiniMax API Key。
+#   如果不忽略它，docker build 会把它 COPY 进镜像层 ——
+#   而镜像层一旦推到 Docker Hub 或任何公开 registry，
+#   密钥就【永久泄漏】了，删 commit、删 tag 都救不回来。
+#
+#   正确做法：密钥只在【运行时】通过 compose 的 environment 注入，
+#   绝不进镜像。这是容器化部署的第一原则。
+#
+#   顺便说明：被 .dockerignore 忽略的文件，不会出现在最终镜像里，
+#   但它们【仍会进构建缓存】。所以生产构建别在有密钥的机器上做，
+#   或者干脆确保 .env 从一开始就不在构建上下文里。
+# =====================================================================
+
+# ---- 密钥与配置 ----
+.env
+.env.*
+!.env.example
+kb_assistant/.env
+
+# ---- Python ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- 前端 ----
+frontend/node_modules/
+frontend/dist/
+frontend/.runtime/
+frontend/docs/
+
+# ---- 日志与运行时产物 ----
+logs/
+kb_assistant/logs/
+*.log
+backend.err.log
+
+# ---- Git 与 IDE ----
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# ---- 文档（镜像里用不到） ----
+*.md
+docs/
+DEBUG_NOTES.md
+PROJECT_DOC.md
+
+# ---- 测试 ----
+tests/

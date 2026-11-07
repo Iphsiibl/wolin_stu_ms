@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# =====================================================================
+# 后端 + 知识库小助手 共用镜像
+# ---------------------------------------------------------------------
+# 【为什么两个服务共用一个镜像？】
+#   主后端和kb_assistant 依赖只差一个 httpx（而主后端 requirements 里也有），
+#   拆两个镜像要维护两份 Dockerfile，改依赖时容易漏。共用一份最省事。
+#   启动时用 command 覆盖：主后端跑 main:app，小助手跑 kb_assistant.app.main:app。
+#
+# 【为什么不用 requirements.txt 里的全部依赖？】
+#   项目 requirements.txt 已经包含 httpx（调模型用），kb_assistant 的
+#   requirements.txt 基本是它的子集，所以装主后端那份就够两边用了。
+# =====================================================================
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ=Asia/Shanghai
+
+WORKDIR /app
+
+# ---- 先装依赖，利用 Docker 层缓存 ----
+# 源码改动不会让这一层失效，改依赖才会重装。
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    -r requirements.txt
+
+# ---- 再拷代码 ----
+COPY . .
+
+# ---- 审计日志目录（重置机制用） ----
+RUN mkdir -p /app/logs
+
+EXPOSE 8003 8010
+
+# 默认起主后端；小助手在 compose 里用 command 覆盖
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]

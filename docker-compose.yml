@@ -1,0 +1,166 @@
+# =====================================================================
+# 学生管理系统 · 生产编排
+# ---------------------------------------------------------------------
+# 【四个服务】
+#   db        MySQL 8          3306   只在 Docker 内网，不映射到宿主机
+#   backend   FastAPI 主后端    8003   只在 Docker 内网
+#   kb        FastAPI 小助手    8010   只在 Docker 内网
+#   frontend  Nginx + 静态资源   80    ★ 唯一对公网开放的端口
+#
+# 【为什么只有 frontend 映射端口？】
+#   公网上只暴露 Nginx 一个入口，后端和小助手全部待在内网。
+#   这本身就是一层防护：攻击者拿不到后端的直连地址，
+#   也扫不到 MySQL 的 3306。
+#
+# 【为什么 db 要用 healthcheck + depends_on?】
+#   主后端 import model 时会触发 Base.metadata.create_all(engine)，
+#   也就是【启动时就要连数据库建表】。
+#   如果 MySQL 还没就绪就启动后端，它会连不上直接崩溃。
+#   condition: service_healthy 保证等 MySQL 真正能用了再起后端。
+#
+# 【内存限制：2核2G 的服务器能不能跑？】
+#   能，但必须显式设 mem_limit，否则 Docker 不限制，
+#   MySQL 默认会按「物理内存的 50%」分配缓冲池，直接把机器吃干。
+#   具体数值和实测结果见 docs/DEPLOY_GUIDE.md。
+# =====================================================================
+
+services:
+  # -----------------------------------------------------------------
+  # 数据库
+  # -----------------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: stu-ms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?必须在 .env 里设置 DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-student_ms_demo}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 【2G 机器关键】：限制 InnoDB 缓冲池。
+      # MySQL 默认按物理内存 50% 分配（2G 机器 = 1G），
+      # 加上连接池和其它开销会直接把机器吃干、触发 OOM Killer。
+      - --innodb-buffer-pool-size=128M
+      - --innodb-log-buffer-size=8M
+      - --max-connections=50
+      - --performance-schema=OFF
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 首次启动自动建库 + 灌 1018 条演示数据
+      - ./sql/01_create_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./sql/02_seed_demo_data.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    # 2G 机器的内存分配：数据库给 600M
+    mem_limit: 600m
+    networks: [stu-ms]
+
+  # -----------------------------------------------------------------
+  # 主后端
+  # -----------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: stu-ms-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-student_ms_demo}
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:?必须在 .env 里设置 DB_PASSWORD}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8003
+      # 演示数据重置口令。不配 = 该功能关闭（接口 404，前端不显示按钮）
+      RESET_TOKEN: ${RESET_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # 审计日志要落盘，容器重建不能丢
+      - ./logs:/app/logs
+    # 2G 机器的内存分配：后端给 350M
+    mem_limit: 350m
+    networks: [stu-ms]
+
+  # -----------------------------------------------------------------
+  # 知识库小助手
+  # -----------------------------------------------------------------
+  kb:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: stu-ms-kb
+    restart: unless-stopped
+    # 同一个镜像，换个入口
+    command: ["uvicorn", "kb_assistant.app.main:app", "--host", "0.0.0.0", "--port", "8010"]
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-student_ms_demo}
+      # 小助手用只读账号，绝不用 root（它会去执行 LLM 生成的 SQL）
+      DB_USER: ${KB_DB_USER:-kb_ro}
+      DB_PASSWORD: ${KB_DB_PASSWORD:-}
+      LLM_PROTOCOL: ${LLM_PROTOCOL:-anthropic}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.minimax.chat/anthropic/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-MiniMax-M3.1-Flash}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-120}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-2048}
+      KB_ASSISTANT_HOST: 0.0.0.0
+      KB_ASSISTANT_PORT: 8010
+      KB_ASSISTANT_CORS_ORIGINS: ${KB_ASSISTANT_CORS_ORIGINS:-}
+      KB_ASSISTANT_LOG_LEVEL: ${KB_ASSISTANT_LOG_LEVEL:-INFO}
+      KB_ASSISTANT_MAX_ROWS: ${KB_ASSISTANT_MAX_ROWS:-200}
+      KB_ASSISTANT_SQL_TIMEOUT: ${KB_ASSISTANT_SQL_TIMEOUT:-15}
+    depends_on:
+      db:
+        condition: service_healthy
+    # 2G 机器的内存分配：小助手给 300M
+    mem_limit: 300m
+    networks: [stu-ms]
+
+  # -----------------------------------------------------------------
+  # 前端（Nginx）
+  # -----------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: stu-ms-frontend
+    restart: unless-stopped
+    ports:
+      # 公网只开这一个端口
+      - "80:80"
+    depends_on: [backend, kb]
+    # Nginx 是纯静态服务，几 MB 就够
+    mem_limit: 100m
+    networks: [stu-ms]
+    # 【关键】Nginx 启动时会立刻解析 upstream 的主机名。
+    # 如果 backend 容器此刻还没进入运行态（depends_on 只保证启动顺序，
+    # 不保证 DNS 记录已生成），解析会失败，Nginx 直接以
+    #   [emerg] host not found in upstream "backend"
+    # 退出，而且 restart: unless-stopped 救不回来 —— 它会反复重启。
+    #
+    # 这里给它 10 秒重试窗口，等 backend 的 DNS 记录就绪。
+    # 这是 Docker Compose + Nginx 的经典坑，不是本项目的特例。
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  mysql_data:
+
+networks:
+  stu-ms:
+    driver: bridge

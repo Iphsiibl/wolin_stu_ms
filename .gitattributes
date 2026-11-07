@@ -1,0 +1,43 @@
+# =====================================================================
+# 换行符规范
+# ---------------------------------------------------------------------
+# 【为什么需要这个文件？】
+#   Windows 上 git 默认会把 LF 转成 CRLF 提交，Linux 上又会转回 LF。
+#   跨平台协作时，同一个文件在不同人机器上反复变来变去，
+#   diff 全是「整个文件都变了」，真正的改动被淹没。
+#
+#   更要命的是：带 CRLF 的 .sh 脚本在 Linux 上会报
+#       $'\r': command not found
+#   容器构建时直接失败。
+#
+# 【规则】
+#   * text=auto eol=lf  —— 仓库里统一存 LF，检出时也用 LF
+#   *.bat eol=crlf       —— Windows 批处理必须用 CRLF
+#   二进制文件标记为 -text，不做任何转换
+# =====================================================================
+
+* text=auto eol=lf
+
+# Windows 批处理与 PowerShell 脚本保持 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 图片与字体：二进制，不转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# 数据与文档
+*.json text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

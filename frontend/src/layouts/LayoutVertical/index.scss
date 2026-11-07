@@ -1,0 +1,116 @@
+/* =====================================================================
+ * 「教务墨册」外壳样式
+ *   书脊（墨）· 目录（墨）· 顶栏（墨）—— 组成一个 L 形的深色外框
+ * ===================================================================== */
+
+.el-container {
+  width: 100%;
+  height: 100%;
+
+  /* ------------------------------------------------------------------
+   * 书脊 + 目录
+   * ---------------------------------------------------------------- */
+  :deep(.el-aside) {
+    width: auto;
+    overflow: hidden;
+    background-color: var(--ink-900);
+    border-right: 1px solid rgb(255 255 255 / 8%);
+
+    .aside-box {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      overflow: hidden;
+      transition: width 0.26s ease;
+
+      /* —— 书脊：56px 的墨色窄条 —— */
+      .spine-rail {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-shrink: 0;
+        width: 56px;
+        height: 100%;
+        padding-top: 14px;
+        background-color: var(--ink-900);
+        border-right: 1px solid rgb(255 255 255 / 8%);
+      }
+
+      /* 竖排书名 */
+      .spine-title {
+        margin-top: 20px;
+        font-family: var(--font-display);
+        font-size: 16px;
+        color: rgb(255 255 255 / 46%);
+        letter-spacing: 0.34em;
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      /* —— 目录 —— */
+      .spine-menu {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        background-color: var(--ink-800);
+
+        .spine-label {
+          padding: 18px 0 8px 18px;
+          font-family: var(--font-display);
+          font-size: 13px;
+          color: rgb(255 255 255 / 32%);
+          letter-spacing: 0.3em;
+        }
+      }
+
+      .el-scrollbar {
+        flex: 1;
+        min-height: 0;
+
+        .el-menu {
+          width: 100%;
+          overflow-x: hidden;
+          border-right: none;
+          background-color: transparent;
+        }
+      }
+    }
+  }
+
+  /* 折叠态：书脊变成顶部的印章方块，目录变成下方的图标栏 */
+  .aside-box.is-collapsed {
+    flex-direction: column;
+
+    .spine-rail {
+      position: static;
+      width: 100%;
+      height: 56px;
+      padding-top: 11px;
+      border-right: none;
+      border-bottom: 1px solid rgb(255 255 255 / 8%);
+    }
+
+    .spine-menu {
+      background-color: var(--ink-900);
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   * 顶栏
+   * ---------------------------------------------------------------- */
+  .el-header {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 18px 0 12px;
+    background-color: var(--ink-900);
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+  }
+}

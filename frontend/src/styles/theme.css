@@ -1,0 +1,998 @@
+/**
+ * =====================================================================
+ * 教务墨册 · 全局设计系统
+ * ---------------------------------------------------------------------
+ * 视觉概念：一册竖排装订的教务账册。
+ *
+ *   墨 ink     —— 顶栏与书脊，系统的外壳
+ *   霜 canvas  —— 工作台底色
+ *   纸 paper   —— 面板与表格
+ *   朱 seal    —— 只出现在三处：激活态、预警、删除
+ *   靛 indigo  —— 数据与链接
+ *   赭 ochre   —— 就业 / 薪资
+ *   青 jade    —— 达标 / 全优
+ *
+ * 字体分工（各司其职，不混用）：
+ *   楷体      标题、品牌字、模块名  —— 仿官方文书
+ *   黑体      正文、界面、表单
+ *   Consolas  所有数字与编号        —— 等宽对齐，像台账
+ *
+ * 层级规则：
+ *   页面 ＝ 页面抬头（楷体标题 + 细线）→ 面板（纸白 + 细边框）→ 表格
+ *   面板之间不用阴影分层，一律用「细边框 + 间距」表达层级。
+ * =====================================================================
+ */
+
+/* ---------------------------------------------------------------------
+ * 1. 设计 token
+ * ------------------------------------------------------------------ */
+:root {
+  /* —— 墨（外壳） —— */
+  --ink-900: #121b26;
+  --ink-800: #1a2532;
+  --ink-700: #24313f;
+  --ink-600: #33414f;
+
+  /* —— 纸与霜 —— */
+  --paper: #ffffff;
+  --canvas: #edf0f3;
+  --wash: #f6f8fa;
+
+  /* —— 界线 —— */
+  --rule: #d9e0e7;
+  --rule-soft: #e9edf1;
+  --rule-strong: #bfc9d3;
+
+  /* —— 文字 —— */
+  --text-ink: #16212d;
+  --text: #374553;
+  --text-sub: #6b7a89;
+  --text-mute: #97a3af;
+
+  /* —— 朱砂（激活 / 预警 / 删除） —— */
+  --seal: #c0392b;
+  --seal-deep: #a32e23;
+  --seal-soft: #fbedea;
+
+  /* —— 靛（数据 / 链接） —— */
+  --indigo: #2f5480;
+  --indigo-soft: #eaf0f7;
+
+  /* —— 紫（性别分类：女生） —— */
+  --violet: #7b5ea6;
+  --violet-soft: #f0ebf7;
+
+  /* —— 赭（就业 / 薪资） —— */
+  --ochre: #a8792a;
+  --ochre-soft: #fbf3e4;
+
+  /* —— 青（达标 / 全优） —— */
+  --jade: #2c7a63;
+  --jade-soft: #e8f3ef;
+
+  /* —— 字体 —— */
+  --font-display: 'STKaiti', 'KaiTi', '楷体', 'Kaiti SC', 'AR PL UKai CN', serif;
+  --font-body: 'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans SC',
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'Consolas', 'SF Mono', 'JetBrains Mono', 'Roboto Mono', ui-monospace, 'Courier New',
+    monospace;
+
+  /* —— 尺度 —— */
+  --radius: 3px;
+  --radius-lg: 4px;
+
+  /* —— 结构尺寸 —— */
+  --header-h: 56px;
+  --tabs-h: 38px;
+  --spine-w: 226px;
+  --spine-rail-w: 56px;
+  --spine-w-collapsed: 64px;
+}
+
+/* ---------------------------------------------------------------------
+ * 2. Element Plus 变量改写
+ *    注意：--el-color-primary 会被 utils/color.ts 在运行时以内联样式写进
+ *    <html>，内联优先级高于这里的 :root，所以主色的真值在 config/index.ts。
+ *    这里改的是 JS 没有覆盖到的那些。
+ * ------------------------------------------------------------------ */
+:root {
+  --el-color-primary: #1e2c3a;
+  --el-color-primary-light-3: #5b6a78;
+  --el-color-primary-light-5: #8b97a2;
+  --el-color-primary-light-7: #bcc4cb;
+  --el-color-primary-light-8: #d3d9de;
+  --el-color-primary-light-9: #edf0f3;
+  --el-color-primary-dark-2: #101a24;
+
+  --el-color-success: #2c7a63;
+  --el-color-success-light-3: #6da795;
+  --el-color-success-light-5: #9ac6b8;
+  --el-color-success-light-7: #c6e0d8;
+  --el-color-success-light-8: #dbeae5;
+  --el-color-success-light-9: #e8f3ef;
+  --el-color-success-dark-2: #226252;
+
+  --el-color-warning: #a8792a;
+  --el-color-warning-light-3: #c4a165;
+  --el-color-warning-light-5: #d6bd93;
+  --el-color-warning-light-7: #e8dac1;
+  --el-color-warning-light-8: #f0e6d5;
+  --el-color-warning-light-9: #fbf3e4;
+  --el-color-warning-dark-2: #865e21;
+
+  --el-color-danger: #c0392b;
+  --el-color-danger-light-3: #d0695e;
+  --el-color-danger-light-5: #dc958d;
+  --el-color-danger-light-7: #e9c1bc;
+  --el-color-danger-light-8: #efd5d2;
+  --el-color-danger-light-9: #fbedea;
+  --el-color-danger-dark-2: #a32e23;
+
+  --el-color-error: #c0392b;
+  --el-color-error-light-3: #d0695e;
+  --el-color-error-light-5: #dc958d;
+  --el-color-error-light-7: #e9c1bc;
+  --el-color-error-light-8: #efd5d2;
+  --el-color-error-light-9: #fbedea;
+  --el-color-error-dark-2: #a32e23;
+
+  --el-color-info: #6b7a89;
+  --el-color-info-light-3: #94a1ad;
+  --el-color-info-light-5: #b4bec7;
+  --el-color-info-light-7: #d4dae0;
+  --el-color-info-light-8: #e2e6ea;
+  --el-color-info-light-9: #f6f8fa;
+  --el-color-info-dark-2: #556270;
+
+  /* 文本层级 */
+  --el-text-color-primary: #16212d;
+  --el-text-color-regular: #374553;
+  --el-text-color-secondary: #6b7a89;
+  --el-text-color-placeholder: #97a3af;
+  --el-text-color-disabled: #b3bcc5;
+
+  /* 背景与描边 */
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #edf0f3;
+  --el-bg-color-overlay: #ffffff;
+  --el-fill-color: #f6f8fa;
+  --el-fill-color-light: #f2f5f8;
+  --el-fill-color-lighter: #f8fafb;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-dark: #e9edf1;
+  --el-border-color: #d9e0e7;
+  --el-border-color-light: #dfe5eb;
+  --el-border-color-lighter: #e9edf1;
+  --el-border-color-extra-light: #eef1f4;
+  --el-border-color-dark: #bfc9d3;
+  --el-border-color-hover: #a9b5c0;
+
+  /* 圆角：方正一点，不要「气泡感」 */
+  --el-border-radius-base: 3px;
+  --el-border-radius-small: 2px;
+  --el-border-radius-round: 2px;
+  --el-border-radius-circle: 50%;
+
+  /* 阴影：几乎不用，靠边框表达层级 */
+  --el-box-shadow-light: 0 1px 2px rgb(22 33 45 / 6%);
+  --el-box-shadow: 0 2px 8px rgb(22 33 45 / 8%);
+}
+
+/* 外壳（顶栏 + 书脊）是墨色，Element 的 header / menu 变量跟着改 */
+:root {
+  --el-header-bg-color: var(--ink-900);
+  --el-header-text-color: rgb(255 255 255 / 78%);
+  --el-header-text-color-regular: rgb(255 255 255 / 60%);
+  --el-header-border-color: rgb(255 255 255 / 9%);
+
+  --el-aside-logo-text-color: rgb(255 255 255 / 88%);
+  --el-aside-border-color: rgb(255 255 255 / 9%);
+
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: rgb(255 255 255 / 66%);
+  --el-menu-hover-bg-color: rgb(255 255 255 / 6%);
+  --el-menu-active-color: #ffffff;
+  --el-menu-item-height: 42px;
+  --el-menu-horizontal-sub-item-height: 50px;
+}
+
+/* ---------------------------------------------------------------------
+ * 3. 基础排版
+ * ------------------------------------------------------------------ */
+body {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 所有数字与编号：等宽 + 表格数字，列才能对齐 */
+.num,
+.el-table .cell .num,
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+/* 表格里 className="num" 的整列（学号、分数、日期……） */
+.el-table td.num,
+.el-table th.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ---------------------------------------------------------------------
+ * 4. 页面骨架
+ * ------------------------------------------------------------------ */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 页面抬头：楷体标题 + 一道细线，和下面的面板分开 */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.page-heading {
+  min-width: 0;
+}
+
+/* 英文小标签：像文书表格左上角的字段名 */
+.page-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-mute);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--text-ink);
+  letter-spacing: 1.5px;
+}
+
+/* 标题前的朱砂短竖条：像印章的边 */
+.page-title::before {
+  width: 3px;
+  height: 20px;
+  content: '';
+  background-color: var(--seal);
+  border-radius: 1px;
+}
+
+.page-title .el-icon {
+  display: none;
+}
+
+.page-subtitle {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-sub);
+}
+
+.page-subtitle .num {
+  color: var(--text-ink);
+  font-weight: 600;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------
+ * 5. 面板（纸）
+ *    不使用阴影，靠 1px 细边框 + 间距分层
+ * ------------------------------------------------------------------ */
+.card {
+  box-sizing: border-box;
+  padding: 18px 20px;
+  overflow-x: hidden;
+  background-color: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+
+/* 账册主面板：顶部一道墨色压边，像册页的装订线 */
+.panel-ledger {
+  border-top: 2px solid var(--ink-900);
+}
+
+.panel-quiet {
+  background-color: var(--wash);
+  border-color: var(--rule-soft);
+}
+
+/* 面板抬头：标题 + 可选的操作区 */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-ink);
+  letter-spacing: 0.3px;
+}
+
+.panel-title::before {
+  width: 3px;
+  height: 13px;
+  content: '';
+  background-color: var(--ink-700);
+  border-radius: 1px;
+}
+
+.panel-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-mute);
+  letter-spacing: 0.04em;
+}
+
+/* 旧的 chart-title 继续可用，视觉对齐 panel-title */
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-ink);
+  margin-bottom: 14px;
+}
+
+.chart-title::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 1px;
+  background-color: var(--ink-700);
+}
+
+/* ---------------------------------------------------------------------
+ * 6. 统计卡片（看板用）
+ *    扁平：细边框 + 左侧墨色压边，不做悬浮位移
+ * ------------------------------------------------------------------ */
+.stat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 14px 16px;
+  background-color: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink-700);
+  border-radius: var(--radius-lg);
+}
+
+.stat-card > div {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  border-left-color: var(--seal);
+  background-color: var(--wash);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  color: var(--ink-700);
+  background-color: var(--wash);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-label {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 数据语义色 */
+.tone-seal {
+  color: var(--seal);
+}
+.tone-indigo {
+  color: var(--indigo);
+}
+.tone-violet {
+  color: var(--violet);
+}
+.tone-ochre {
+  color: var(--ochre);
+}
+.tone-jade {
+  color: var(--jade);
+}
+
+/* ---------------------------------------------------------------------
+ * 7. 册页副表：几项指标排成一行，像统计表的一栏
+ * ------------------------------------------------------------------ */
+.ledger-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  padding: 0;
+  overflow: hidden;
+}
+
+.ledger-cell {
+  padding: 16px 20px;
+  border-right: 1px solid var(--rule-soft);
+
+  &:last-child {
+    border-right: none;
+  }
+}
+
+.ledger-label {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.ledger-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text-ink);
+
+  small {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-sub);
+  }
+}
+
+.ledger-note {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+
+/* ---------------------------------------------------------------------
+ * 8. 快捷入口
+ * ------------------------------------------------------------------ */
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  background-color: var(--wash);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.shortcut:hover {
+  background-color: var(--paper);
+  border-color: var(--ink-600);
+}
+
+/* 快捷入口竖排：一条一条叠起来，正好把卡片填满，
+   不会出现「上面三张卡片、下面一大片空白」的情况 */
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shortcut-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  opacity: 0.9;
+}
+
+.shortcut-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-ink);
+}
+
+.shortcut-desc {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--text-sub);
+}
+
+/* ---------------------------------------------------------------------
+ * 8. Element Plus 组件微调
+ * ------------------------------------------------------------------ */
+
+/* 按钮：方正、克制 */
+.el-button {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--ink-900);
+  --el-button-border-color: var(--ink-900);
+  --el-button-hover-bg-color: var(--ink-700);
+  --el-button-hover-border-color: var(--ink-700);
+  --el-button-active-bg-color: #0b1219;
+  --el-button-active-border-color: #0b1219;
+  --el-button-disabled-bg-color: var(--ink-600);
+  --el-button-disabled-border-color: var(--ink-600);
+}
+
+.el-button--danger {
+  --el-button-bg-color: var(--seal);
+  --el-button-border-color: var(--seal);
+  --el-button-hover-bg-color: var(--seal-deep);
+  --el-button-hover-border-color: var(--seal-deep);
+  --el-button-active-bg-color: #8e281f;
+  --el-button-active-border-color: #8e281f;
+}
+
+/* 表格里的链接式操作：修改 = 靛，删除 = 朱砂 */
+.el-table .cell .el-button.is-link {
+  margin-left: 0;
+  padding-left: 0;
+  padding-right: 0;
+  font-weight: 500;
+}
+
+.el-table .cell .el-button.is-link + .el-button.is-link {
+  margin-left: 14px;
+}
+
+.el-table .cell .el-button--primary.is-link {
+  color: var(--indigo);
+}
+
+.el-table .cell .el-button--primary.is-link:hover {
+  color: #1d3a5c;
+}
+
+.el-table .cell .el-button--danger.is-link {
+  color: var(--seal);
+}
+
+.el-table .cell .el-button--danger.is-link:hover {
+  color: var(--seal-deep);
+}
+
+/* 输入类控件：细边框，聚焦是墨色而不是蓝色 */
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  box-shadow: 0 0 0 1px var(--rule) inset;
+}
+
+.el-input__wrapper:hover,
+.el-textarea__inner:hover,
+.el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--rule-strong) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow:
+    0 0 0 1px var(--ink-700) inset,
+    0 0 0 3px rgb(30 44 58 / 8%);
+}
+
+.el-input-number__increase,
+.el-input-number__decrease {
+  background-color: var(--wash);
+  border-color: var(--rule);
+  color: var(--text-sub);
+}
+
+.el-input-number__increase:hover,
+.el-input-number__decrease:hover {
+  color: var(--seal);
+}
+
+/* 标签：小方角，语义色淡底 */
+.el-tag {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  border-radius: 2px;
+}
+
+/* primary 标签走「靛蓝」而不是墨色：墨色留给按钮和结构，
+   标签用靛蓝才不会和主按钮撞在一起。
+   注意选择器要写成双类：Element Plus 2.14 用的是
+   `.el-tag.el-tag--primary`（特异性 0,2,0），单类写法会被它压掉。 */
+.el-tag.el-tag--primary {
+  --el-tag-text-color: var(--indigo);
+  --el-tag-bg-color: var(--indigo-soft);
+  --el-tag-border-color: transparent;
+}
+
+/* 性别标签：男=靛蓝淡底、女=淡紫淡底，
+   和图表里的「靛=男 / 紫=女」是同一套配色 */
+.el-tag.is-female {
+  --el-tag-text-color: var(--violet);
+  --el-tag-bg-color: var(--violet-soft);
+  --el-tag-border-color: transparent;
+}
+
+/* 分数 / 状态标签：语义色跟着「墨册」色板走，
+   别用 Element 默认的荧光绿（success）—— 那套颜色和整套界面不搭。
+   青=达标优秀、赭=中等、朱砂=预警，三档一眼能分。 */
+.el-tag.el-tag--success {
+  --el-tag-text-color: var(--jade);
+  --el-tag-bg-color: var(--jade-soft);
+  --el-tag-border-color: transparent;
+}
+
+.el-tag.el-tag--warning {
+  --el-tag-text-color: var(--ochre);
+  --el-tag-bg-color: var(--ochre-soft);
+  --el-tag-border-color: transparent;
+}
+
+.el-tag.el-tag--danger {
+  --el-tag-text-color: var(--seal);
+  --el-tag-bg-color: var(--seal-soft);
+  --el-tag-border-color: transparent;
+}
+
+/* 单选 / 复选：选中是墨色 */
+.el-checkbox__input.is-checked .el-checkbox__inner,
+.el-checkbox__input.is-indeterminate .el-checkbox__inner,
+.el-radio__input.is-checked .el-radio__inner {
+  background-color: var(--ink-900);
+  border-color: var(--ink-900);
+}
+
+.el-checkbox__input.is-checked + .el-checkbox__label,
+.el-radio__input.is-checked + .el-radio__label {
+  color: var(--text-ink);
+}
+
+.el-switch.is-checked .el-switch__core {
+  background-color: var(--ink-700);
+  border-color: var(--ink-700);
+}
+
+/* 下拉浮层：细边框，不用重阴影 */
+.el-popper.is-light,
+.el-select-dropdown,
+.el-dropdown__popper,
+.el-picker__popper {
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 4px 16px rgb(22 33 45 / 10%) !important;
+}
+
+.el-select-dropdown__item.is-selected {
+  color: var(--seal);
+  font-weight: 600;
+}
+
+.el-select-dropdown__item.is-hovering {
+  background-color: var(--wash);
+}
+
+/* 弹窗：顶部一道墨色压边，标题用楷体 */
+.el-dialog {
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--ink-900);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgb(22 33 45 / 16%);
+}
+
+.el-dialog__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-ink);
+  letter-spacing: 1px;
+}
+
+/* 表单标签：右对齐的窄栏，像表格栏目 */
+.el-form-item__label {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* 消息与提示 */
+.el-message {
+  border-radius: var(--radius);
+  border-color: var(--rule);
+}
+
+.el-message-box {
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--ink-900);
+  border-radius: var(--radius-lg);
+}
+
+.el-message-box__title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.5px;
+}
+
+.el-notification {
+  border-radius: var(--radius);
+}
+
+/* 空状态：一句话 + 一个动作，不要大面积插画 */
+.empty-hint {
+  padding: 44px 0;
+  font-size: 13px;
+  color: var(--text-sub);
+  text-align: center;
+}
+
+.ellipsis-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c6cfd8;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a9b5c0;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* 加载遮罩 */
+.el-loading-mask {
+  background-color: rgb(237 240 243 / 82%);
+}
+
+/* 进度条（男女比等）：墨色主条 */
+.el-progress-bar__outer {
+  background-color: var(--rule-soft);
+}
+
+.el-progress__text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-ink) !important;
+}
+
+/* 顶栏里的图标按钮（菜单搜索 / 全屏） */
+.el-header .toolBar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  color: rgb(255 255 255 / 62%);
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.el-header .toolBar-icon:hover {
+  color: #fff;
+  background-color: rgb(255 255 255 / 9%);
+}
+
+/* 头像：细线圈住，别做成大圆气泡 */
+.header-avatar {
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 50%;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+
+  &:hover {
+    border-color: var(--seal);
+    box-shadow: 0 0 0 2px rgb(212 160 74 / 26%);
+    transform: translateY(-1px);
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* 分页：方块 + 等宽数字，当前页是墨色实心 */
+.el-pagination {
+  --el-pagination-bg-color: var(--ink-900);
+  --el-pagination-button-bg-color: var(--paper);
+  --el-pagination-hover-color: var(--seal);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--text-sub);
+}
+
+.el-pagination button,
+.el-pagination .el-pager li {
+  color: var(--text);
+  background-color: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.el-pagination button:hover,
+.el-pagination .el-pager li:hover {
+  color: var(--seal);
+  border-color: var(--seal);
+}
+
+.el-pagination .el-pager li.is-active {
+  color: #fff;
+  background-color: var(--ink-900);
+  border-color: var(--ink-900);
+}
+
+.el-pagination .el-pager li.is-active:hover {
+  color: #fff;
+  border-color: var(--ink-900);
+}
+
+.el-pagination .el-select .el-input__wrapper {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------
+ * 9. 表格交互：排序标记 + 行悬浮
+ *    各列表模块都默认打开了排序，表头的箭头必须和整体调性一致 ——
+ *    Element 默认的灰三角像从别的系统嵌进来，这里换成账册的朱砂。
+ * ------------------------------------------------------------------ */
+
+/* 可排序表头：手型光标 + 悬停文字转墨色 */
+.el-table th.el-table__cell.is-sortable > .cell {
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.el-table th.el-table__cell.is-sortable:hover > .cell {
+  color: var(--text-ink);
+}
+
+/* 箭头平时不出现，悬停才露头（避免一屏都是三角） */
+.el-table th.el-table__cell.is-sortable:hover .sort-caret.ascending {
+  border-bottom-color: var(--rule-strong);
+}
+
+.el-table th.el-table__cell.is-sortable:hover .sort-caret.descending {
+  border-top-color: var(--rule-strong);
+}
+
+/* 已排序列：朱砂实心。朱砂在这套系统里只表示"正在起作用" */
+.el-table th.el-table__cell.ascending .sort-caret.ascending {
+  border-bottom-color: var(--seal);
+}
+
+.el-table th.el-table__cell.descending .sort-caret.descending {
+  border-top-color: var(--seal);
+}
+
+/* 行悬浮：账册左侧压一道朱砂竖标，指针落在哪一行一目了然 */
+.el-table__body tr {
+  transition: background-color 0.16s ease;
+}
+
+.el-table__body tr:hover > td.el-table__cell {
+  background-color: var(--wash);
+}
+
+.el-table__body tr:hover > td.el-table__cell:first-child {
+  box-shadow: inset 3px 0 0 var(--seal);
+}
+
+/* ---------------------------------------------------------------------
+ * 10. 焦点可见性（键盘可达）
+ * ------------------------------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--seal);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------
+ * 11. 动效：只保留必要的一点点
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

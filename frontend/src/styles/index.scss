@@ -1,0 +1,16 @@
+/**
+ * =====================================================================
+ * 样式入口
+ * ---------------------------------------------------------------------
+ * 这一层移植自 Geeker-Admin（MIT License, Copyright (c) 2022 Halsey）：
+ *   reset.scss       基础重置
+ *   common.scss      flex / 省略 / 过渡 / 间距工具类
+ *   element.scss     Element Plus 组件样式微调（卡片、表格、弹窗…）
+ *   element-dark.scss 暗黑模式微调
+ * 项目自己的补充样式在 styles/theme.css（纯 CSS），由 main.ts 引入。
+ * =====================================================================
+ */
+@use './reset';
+@use './common';
+@use './element';
+@use './element-dark';

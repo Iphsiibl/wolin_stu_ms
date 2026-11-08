@@ -58,9 +58,6 @@ cp .env.example .env      # 填 DB_PASSWORD / LLM_API_KEY / RESET_TOKEN
 docker compose up -d
 ```
 
-四个服务：MySQL + FastAPI 后端 + 知识库小助手 + Nginx 前端。
-**2 核 2G 的小机器实测够用**（四服务空闲时合计约 278 MiB 内存）。
-部署细节、内存调优、踩坑记录见 **[docs/DEPLOY_GUIDE.md](docs/DEPLOY_GUIDE.md)**。
 
 ---
 
@@ -101,7 +98,7 @@ docker compose up -d
 ├── frontend/               Vue 3 前端
 ├── tests/                  pytest 测试
 ├── docs/
-│   ├── DEPLOY_GUIDE.md     上线指引（含 2G2C 实测数据与踩坑记录）
+│   ├── DEPLOY_GUIDE.md     上线指引
 │   ├── RESET_GUIDE.md      数据重置机制说明
 │   └── ARCHITECTURE.md     架构详解
 └── docker-compose.yml      生产编排
